@@ -3,6 +3,24 @@
 class Curl {
     private $ch; //экземпляр курла
     private $host; //базовая часть урла без слэша на конце
+    public $ch_settings;
+
+    public function config_save($file) {
+        $data = serialize($this->ch_settings);
+        file_put_contents($file, $data);
+    }
+    public function config_load($file) {
+        $data = file_get_contents($file);
+        $data = unserialize($data);
+
+        curl_setopt_array($this->ch, $data);
+
+        foreach ($data as $key => $val) {
+            $this->ch_settings[$key] = $val;
+        }
+        return $this;
+    }
+
 
     public static function app($host) {
         return new self($host);
@@ -19,6 +37,7 @@ class Curl {
     }
 
     public function set($name, $value) {
+        $this->ch_settings[$name] = $value;
         curl_setopt($this->ch, $name, $value);
         return $this;
     }
@@ -28,14 +47,89 @@ class Curl {
         $data = curl_exec($this->ch);
         return $this->process_result($data);
     }
+    public function headers($act) {
+        $this->set(CURLOPT_HEADER, $act);
+        return $this;
+    }
+
+    public function ssl($act) {
+        $this->set(CURLOPT_SSL_VERIFYPEER, $act);
+        $this->set(CURLOPT_SSL_VERIFYHOST, $act);
+        return $this;
+    }
+
+    // false - откл обращение методом POST
+    // array - ассоциативный массив с параметрами(login, pass)
+    public function post($data) {
+        if ($data == false) {
+            $this->set(CURLOPT_POST, false);
+            return $this;
+        }
+        $this->set(CURLOPT_POST, true);
+        $this->set(CURLOPT_POSTFIELDS, http_build_query($data)); // строит запрос вида email=email&password=pass...
+        return $this;
+    }
+
+    public function cookie() {
+        $this->set(CURLOPT_COOKIEJAR, $_SERVER['DOCUMENT_ROOT'] . '/parser/cookie.txt');
+        $this->set(CURLOPT_COOKIEFILE, $_SERVER['DOCUMENT_ROOT'] . '/parser/cookie.txt');
+        return $this;
+    }
+
+    public function add_header($header) {
+        $this->ch_settings[CURLOPT_HTTPHEADER][] = $header;
+        $this->set(CURLOPT_HTTPHEADER, $this->ch_settings[CURLOPT_HEADER]);
+        return $this;
+    }
+
+    public function add_headers($headers) {
+        foreach ($headers as $header) {
+            $this->ch_settings[CURLOPT_HEADER][] = $header;
+        }
+
+        $this->set(CURLOPT_HTTPHEADER, $this->ch_settings[CURLOPT_HEADER]);
+        return $this;
+    }
+
+    public function clear_headers() {
+        $this->ch_settings[CURLOPT_HTTPHEADER] = array();
+        $this->set(CURLOPT_HTTPHEADER, $this->ch_settings[CURLOPT_HEADER]);
+        return $this;
+    }
+
+    // следовать ли за перенапрвалением true/false
+    public function follow($param) {
+        $this->set(CURLOPT_FOLLOWLOCATION, $param);
+        return $this;
+    }
+    public function referer($url) {
+        $this->set(CURLOPT_REFERER, $url);
+        return $this;
+    }
+    public function user_agent($agent) {
+        $this->set(CURLOPT_USERAGENT, $agent);
+        return $this;
+    }
+
+    public function random_agent() {
+
+    }
+
 
     public function make_url($url) {
         if ($url[0] != '/')
             $url = '/' . $url;
         return $this->host . $url;
     }
-
     private function process_result($data) {
+        //если в запросе заголовки отключены
+        if(!isset($this->ch_settings[CURLOPT_HTTPHEADER]) || !$this->ch_settings[CURLOPT_HEADER]) {
+            return array(
+                'headers' => array(),
+                'html' => $data
+            );
+        }
+        //если включены
         // ищем \n или \r\n, т.е. пустую строку, разделяющую заголовок ответа от тела
         $p_n = "\n";
         $p_rn = "\r\n";
