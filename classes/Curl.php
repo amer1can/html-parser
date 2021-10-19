@@ -71,8 +71,8 @@ class Curl {
     }
 
     public function cookie() {
-        $this->set(CURLOPT_COOKIEJAR, $_SERVER['DOCUMENT_ROOT'] . '/parser/cookie.txt');
-        $this->set(CURLOPT_COOKIEFILE, $_SERVER['DOCUMENT_ROOT'] . '/parser/cookie.txt');
+        $this->set(CURLOPT_COOKIEJAR, $_SERVER['DOCUMENT_ROOT'] . 'cookie.txt');
+        $this->set(CURLOPT_COOKIEFILE, $_SERVER['DOCUMENT_ROOT'] . 'cookie.txt');
         return $this;
     }
 
